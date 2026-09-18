@@ -69,3 +69,6 @@ Roadmap Phases 1 to 4 ticked, with the evidence-ref item moved to Phase 5;
   attestations before judging.
 - Reproduced from a plain clone with `veridict fetch` and
   `veridict verify origin/main..origin/veridict-demo`: policy met.
+- After the fix, PR #16 was rebased and the pull-request verify (run
+  35331662558) waited for the push attest to finish, then passed on its first
+  attempt. Core `main` attested itself (run 35331648333) after the merge.
