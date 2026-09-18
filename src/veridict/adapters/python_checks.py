@@ -51,12 +51,17 @@ def has_contracts(repo: Repo, files: list[str]) -> bool:
 
 
 def _tool(name: str) -> list[str] | None:
-    exe = shutil.which(name)
-    if exe:
-        return [exe]
+    """Prefer the running interpreter's copy of a tool, then anything on PATH.
+
+    The interpreter that runs veridict is the one whose site-packages hold the
+    project under test; a different pytest on PATH would not import it.
+    """
     module = {"mypy": "mypy", "pytest": "pytest", "crosshair": "crosshair"}[name]
     probe = subprocess.run([sys.executable, "-c", f"import {module}"], capture_output=True)
-    return [sys.executable, "-m", module] if probe.returncode == 0 else None
+    if probe.returncode == 0:
+        return [sys.executable, "-m", module]
+    exe = shutil.which(name)
+    return [exe] if exe else None
 
 
 def _version(cmd: list[str], name: str) -> str:

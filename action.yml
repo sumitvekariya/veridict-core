@@ -37,7 +37,12 @@ runs:
       shell: bash
       run: |
         python -m pip install --quiet --upgrade pip
-        python -m pip install --quiet "veridict[sigstore,checks] @ git+https://github.com/${{ github.action_repository }}@${{ github.action_ref }}"
+        if [ -n "${{ github.action_repository }}" ]; then
+          python -m pip install --quiet "veridict[sigstore,checks] @ git+https://github.com/${{ github.action_repository }}@${{ github.action_ref }}"
+        else
+          # Used as `uses: ./` from this repository itself.
+          python -m pip install --quiet "${{ github.action_path }}[sigstore,checks]"
+        fi
         if [ -f requirements.txt ]; then python -m pip install --quiet -r requirements.txt; fi
         git config user.name "veridict[bot]"
         git config user.email "veridict-bot@users.noreply.github.com"
