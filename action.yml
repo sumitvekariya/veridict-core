@@ -1,0 +1,94 @@
+name: Veridict
+description: Record a repository's checks as signed attestations in git notes, or verify a range against its policy.
+branding:
+  icon: check-circle
+  color: green
+
+inputs:
+  mode:
+    description: "attest (record and push evidence for a commit) or verify (evaluate the policy for a range)"
+    default: attest
+  ref:
+    description: Revision to attest
+    default: HEAD
+  range:
+    description: Revision or range to verify, for example BASE..HEAD
+    default: HEAD
+  policy:
+    description: Path to the policy file
+    default: .veridict/policy.toml
+  remote:
+    description: Remote holding the notes ref
+    default: origin
+  python-version:
+    default: "3.12"
+  infer-authorship:
+    description: In attest mode, also record a weak authorship attestation from commit trailers
+    default: "true"
+  wait-seconds:
+    description: In verify mode, how long to wait for attestations on the head commit before judging (attest on push and verify on pull request race)
+    default: "300"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install veridict
+      shell: bash
+      run: |
+        python -m pip install --quiet --upgrade pip
+        if [ -n "${{ github.action_repository }}" ]; then
+          python -m pip install --quiet "veridict[sigstore,checks] @ git+https://github.com/${{ github.action_repository }}@${{ github.action_ref }}"
+        else
+          # Used as `uses: ./` from this repository itself.
+          python -m pip install --quiet "${{ github.action_path }}[sigstore,checks]"
+        fi
+        if [ -f requirements.txt ]; then python -m pip install --quiet -r requirements.txt; fi
+        git config user.name "veridict[bot]"
+        git config user.email "veridict-bot@users.noreply.github.com"
+
+    - name: Attest
+      if: inputs.mode == 'attest'
+      shell: bash
+      run: |
+        set -euo pipefail
+        veridict fetch "${{ inputs.remote }}" || true
+        veridict attest --adapter python --sign sigstore --rev "${{ inputs.ref }}" | tee attest.log
+        if [ "${{ inputs.infer-authorship }}" = "true" ]; then
+          veridict authorship --infer --sign sigstore --rev "${{ inputs.ref }}"
+        fi
+        veridict push "${{ inputs.remote }}"
+        {
+          echo "### Veridict attest"
+          echo '```'
+          cat attest.log
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Verify
+      if: inputs.mode == 'verify'
+      shell: bash
+      run: |
+        set -uo pipefail
+        range="${{ inputs.range }}"
+        head=$(git rev-parse "${range##*..}")
+        deadline=$(( $(date +%s) + ${{ inputs.wait-seconds }} ))
+        while :; do
+          veridict fetch "${{ inputs.remote }}" >/dev/null 2>&1 || true
+          count=$(veridict show "$head" 2>/dev/null | head -1 | sed -E 's/.* : ([0-9]+) attestation.*/\1/')
+          if [ "${count:-0}" -gt 0 ]; then break; fi
+          if [ "$(date +%s)" -ge "$deadline" ]; then echo "no attestations on $head after ${{ inputs.wait-seconds }}s"; break; fi
+          echo "waiting for attestations on ${head:0:12} ..."; sleep 15
+        done
+        veridict verify "$range" --policy "${{ inputs.policy }}" | tee verify.log
+        status=${PIPESTATUS[0]}
+        {
+          echo "### Veridict verify"
+          echo '```'
+          cat verify.log
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+        exit "$status"
