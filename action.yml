@@ -1,0 +1,77 @@
+name: Veridict
+description: Record a repository's checks as signed attestations in git notes, or verify a range against its policy.
+branding:
+  icon: check-circle
+  color: green
+
+inputs:
+  mode:
+    description: "attest (record and push evidence for a commit) or verify (evaluate the policy for a range)"
+    default: attest
+  ref:
+    description: Revision to attest
+    default: HEAD
+  range:
+    description: Revision or range to verify, for example BASE..HEAD
+    default: HEAD
+  policy:
+    description: Path to the policy file
+    default: .veridict/policy.toml
+  remote:
+    description: Remote holding the notes ref
+    default: origin
+  python-version:
+    default: "3.12"
+  infer-authorship:
+    description: In attest mode, also record a weak authorship attestation from commit trailers
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install veridict
+      shell: bash
+      run: |
+        python -m pip install --quiet --upgrade pip
+        python -m pip install --quiet "veridict[sigstore,checks] @ git+https://github.com/${{ github.action_repository }}@${{ github.action_ref }}"
+        if [ -f requirements.txt ]; then python -m pip install --quiet -r requirements.txt; fi
+        git config user.name "veridict[bot]"
+        git config user.email "veridict-bot@users.noreply.github.com"
+
+    - name: Attest
+      if: inputs.mode == 'attest'
+      shell: bash
+      run: |
+        set -euo pipefail
+        veridict fetch "${{ inputs.remote }}" || true
+        veridict attest --adapter python --sign sigstore --rev "${{ inputs.ref }}" | tee attest.log
+        if [ "${{ inputs.infer-authorship }}" = "true" ]; then
+          veridict authorship --infer --sign sigstore --rev "${{ inputs.ref }}"
+        fi
+        veridict push "${{ inputs.remote }}"
+        {
+          echo "### Veridict attest"
+          echo '```'
+          cat attest.log
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Verify
+      if: inputs.mode == 'verify'
+      shell: bash
+      run: |
+        set -uo pipefail
+        veridict fetch "${{ inputs.remote }}" || true
+        veridict verify "${{ inputs.range }}" --policy "${{ inputs.policy }}" | tee verify.log
+        status=${PIPESTATUS[0]}
+        {
+          echo "### Veridict verify"
+          echo '```'
+          cat verify.log
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+        exit "$status"

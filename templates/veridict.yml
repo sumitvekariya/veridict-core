@@ -1,0 +1,43 @@
+# Veridict: verification evidence for AI-written code, stored in git.
+#
+# Copy to .github/workflows/veridict.yml. On every push the checks run and
+# their verdicts are recorded as Sigstore-signed attestations under
+# refs/notes/veridict. On every pull request the range is verified against
+# .veridict/policy.toml and the verdict lands in the job summary.
+#
+# Replace OWNER/veridict-core with the repository that hosts the action.
+
+name: veridict
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: write   # push refs/notes/veridict
+  id-token: write   # Sigstore keyless signing
+
+jobs:
+  attest:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: OWNER/veridict-core@main
+        with:
+          mode: attest
+
+  verify:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: OWNER/veridict-core@main
+        with:
+          mode: verify
+          range: ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}

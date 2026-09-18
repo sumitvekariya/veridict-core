@@ -1,0 +1,38 @@
+# Veridict policy. Lives at .veridict/policy.toml in the reviewed repository.
+version = 1
+
+[trust]
+# Ed25519 keyids from `veridict keygen`, for attestations made outside CI.
+keys = []
+
+# Sigstore identities allowed to attest. Globs are allowed in `identity`.
+[[trust.identities]]
+issuer = "https://token.actions.githubusercontent.com"
+identity = "https://github.com/OWNER/REPO/.github/workflows/veridict.yml@refs/heads/*"
+
+[options]
+# Accept an attestation made on a different commit with the same tree
+# (evidence survives a rebase that changed nothing). Off by default.
+allow_tree_match = false
+# A commit with no authorship evidence is treated as this class.
+unknown_author = "agent"
+
+# Agent-written or agent-assisted Python must carry the three checks.
+[[rule]]
+name = "agent-written python"
+paths = ["**/*.py"]
+authors = ["agent", "assisted"]
+require = [
+  { checker = "mypy", result = ["pass"] },
+  { checker = "pytest", result = ["pass"] },
+  { checker = "crosshair", result = ["pass", "skipped"] },
+]
+
+# Changes to this policy are covered by a rule, so they are never
+# fail-closed by accident. Tighten authors to ["human"] to forbid agents
+# from editing the policy.
+[[rule]]
+name = "policy edits"
+paths = [".veridict/**"]
+authors = ["human", "assisted", "agent"]
+require = []
