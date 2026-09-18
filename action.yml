@@ -25,6 +25,9 @@ inputs:
   infer-authorship:
     description: In attest mode, also record a weak authorship attestation from commit trailers
     default: "true"
+  wait-seconds:
+    description: In verify mode, how long to wait for attestations on the head commit before judging (attest on push and verify on pull request race)
+    default: "300"
 
 runs:
   using: composite
@@ -70,8 +73,17 @@ runs:
       shell: bash
       run: |
         set -uo pipefail
-        veridict fetch "${{ inputs.remote }}" || true
-        veridict verify "${{ inputs.range }}" --policy "${{ inputs.policy }}" | tee verify.log
+        range="${{ inputs.range }}"
+        head=$(git rev-parse "${range##*..}")
+        deadline=$(( $(date +%s) + ${{ inputs.wait-seconds }} ))
+        while :; do
+          veridict fetch "${{ inputs.remote }}" >/dev/null 2>&1 || true
+          count=$(veridict show "$head" 2>/dev/null | head -1 | sed -E 's/.* : ([0-9]+) attestation.*/\1/')
+          if [ "${count:-0}" -gt 0 ]; then break; fi
+          if [ "$(date +%s)" -ge "$deadline" ]; then echo "no attestations on $head after ${{ inputs.wait-seconds }}s"; break; fi
+          echo "waiting for attestations on ${head:0:12} ..."; sleep 15
+        done
+        veridict verify "$range" --policy "${{ inputs.policy }}" | tee verify.log
         status=${PIPESTATUS[0]}
         {
           echo "### Veridict verify"

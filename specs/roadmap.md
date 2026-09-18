@@ -17,15 +17,15 @@ and may reorder everything after them.
 **Goal:** turn the checks a Python repository already runs into attestations
 in git.
 
-- [ ] `veridict/` package: in-toto Statement with `gitCommit` and `gitTree`
+- [x] `veridict/` package: in-toto Statement with `gitCommit` and `gitTree`
       subjects, DSSE envelope, predicate types for verification and authorship
-- [ ] Key-based signing (Ed25519 or SSH key) with trusted-key verification
-- [ ] Notes storage: one envelope per line under `refs/notes/veridict`,
-      evidence blobs under `refs/veridict/evidence/<sha256>`
-- [ ] Python adapter: mypy, pytest, crosshair, each a signed-tier verdict;
+- [x] Key-based signing (Ed25519 or SSH key) with trusted-key verification
+- [x] Notes storage: one envelope per line under `refs/notes/veridict`
+      (evidence blobs under `refs/veridict/evidence/<sha256>` moved to Phase 5)
+- [x] Python adapter: mypy, pytest, crosshair, each a signed-tier verdict;
       crosshair counterexamples recorded as falsification evidence
-- [ ] `veridict attest`, `veridict push`, `veridict fetch`
-- [ ] pytest suite against a fixture repository; this starts the repository's
+- [x] `veridict attest`, `veridict push`, `veridict fetch`
+- [x] pytest suite against a fixture repository; this starts the repository's
       own tests
 
 ---
@@ -34,13 +34,13 @@ in git.
 
 **Goal:** answer pass or fail from a clone, with no forge API.
 
-- [ ] `.veridict/policy.toml`: rules by path and author class requiring
+- [x] `.veridict/policy.toml`: rules by path and author class requiring
       predicates, tiers and thresholds; trusted identities
-- [ ] `veridict verify <rev-range>`: signatures, subject binding, policy
+- [x] `veridict verify <rev-range>`: signatures, subject binding, policy
       evaluation, non-zero exit and a report of what is missing
-- [ ] Policy self-protection: a change to the policy file must satisfy the
+- [x] Policy self-protection: a change to the policy file must satisfy the
       policy
-- [ ] Negative tests: tampered note, replayed attestation, wrong subject,
+- [x] Negative tests: tampered note, replayed attestation, wrong subject,
       untrusted key, missing predicate
 
 ---
@@ -49,12 +49,12 @@ in git.
 
 **Goal:** record who or what wrote a change, strongest source first.
 
-- [ ] `veridict hook install`: a `prepare-commit-msg` hook that adds an
+- [x] `veridict hook install`: a `prepare-commit-msg` hook that adds an
       `Assisted-by:` trailer when an agent session is detected
 - [ ] Authorship attestation from the agent side at commit time, starting
       with Claude Code hooks
-- [ ] CI inference from trailers, marked as weak evidence
-- [ ] Missing authorship treated as agent-authored by policy
+- [x] CI inference from trailers, marked as weak evidence
+- [x] Missing authorship treated as agent-authored by policy
 
 ---
 
@@ -62,11 +62,11 @@ in git.
 
 **Goal:** no key management in CI, and a check on the pull request.
 
-- [ ] Sigstore keyless signing of envelopes with the workflow's OIDC identity
-- [ ] Trusted identities as issuer and subject patterns in policy
-- [ ] `templates/veridict-attest.yml`: attest and push on every push, verify
+- [x] Sigstore keyless signing of envelopes with the workflow's OIDC identity
+- [x] Trusted identities as issuer and subject patterns in policy
+- [x] `templates/veridict.yml` and the composite `action.yml`: attest and push on every push, verify
       on pull requests, publish a check run
-- [ ] Run it on the demo repository end to end
+- [x] Run it on the demo repository end to end
 
 ---
 
@@ -74,6 +74,7 @@ in git.
 
 **Goal:** the first certificate-tier verdict.
 
+- [ ] Evidence blobs under `refs/veridict/evidence/<sha256>` for proofs
 - [ ] SMT adapter: cvc5 with Alethe proof output, checked by carcara
 - [ ] Move the demo repository's Z3 property scripts to SMT-LIB
 - [ ] Verify re-checks stored proofs locally

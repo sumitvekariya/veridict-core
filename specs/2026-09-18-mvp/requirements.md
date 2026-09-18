@@ -193,7 +193,14 @@ it.
 **Must not break.** Nothing in `Zkred/veridict` changes; its deployment is
 untouched. The demo repository's existing gate keeps running.
 
-**Open questions.** Whether a notes push with `GITHUB_TOKEN` needs more than
-`contents: write` (expected: no). Whether Sigstore's ambient credential
-detection works in the composite action without extra setup (expected: yes
-with `id-token: write`). Both are resolved by the live run.
+**Open questions, resolved by the live run.** A notes push with `GITHUB_TOKEN`
+needs only `contents: write`. Sigstore's ambient credential detection works
+inside the composite action with `id-token: write`. Two things the run taught:
+
+- **Verify races attest.** A push and its pull request fire at the same time,
+  so the first verify saw no notes and failed. The action's verify mode now
+  waits up to `wait-seconds` for attestations on the head commit.
+- **Shared hooks paths.** `git rev-parse --git-path hooks` honours
+  `core.hooksPath`; an early version of `hook install` wrote into a
+  developer's global hooks directory. The installer now refuses a shared
+  path unless `--shared` is given, and the tests ignore global git config.
